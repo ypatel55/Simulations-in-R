@@ -1,0 +1,208 @@
+---
+title: "Week 6 - Midterm Assignment: Simulation Project"
+author: "STAT 420, Summer 2023, Yogi Patel (ypatel55)"
+date: ''
+output:
+  pdf_document:
+    toc: yes
+  html_document:
+    theme: readable
+    toc: yes
+urlcolor: cyan
+---
+
+# Simulation Study 3: Power
+
+## Introduction
+
+In this simulation study I will investigate the **power** of the significance of regression test for simple linear regression. 
+
+\[
+H_0: \beta_{1} = 0 \ \text{vs} \ H_1: \beta_{1} \neq 0
+\]
+
+We had defined the *significance* level, $\alpha$, to be the probability of a Type I error.
+
+\[
+\alpha = P[\text{Reject } H_0 \mid H_0 \text{ True}] = P[\text{Type I Error}]
+\]
+
+Similarly, the probability of a Type II error is often denoted using $\beta$; however, this should not be confused with a regression parameter.
+
+\[
+\beta = P[\text{Fail to Reject } H_0 \mid H_1 \text{ True}] = P[\text{Type II Error}]
+\]
+
+*Power* is the probability of rejecting the null hypothesis when the null is not true, that is, the alternative is true and $\beta_{1}$ is non-zero.
+
+\[
+\text{Power} = 1 - \beta = P[\text{Reject } H_0 \mid H_1 \text{ True}]
+\]
+
+Essentially, power is the probability that a signal of a particular strength will be detected. Many things affect the power of a test. In this case, some of those are:
+
+- Sample Size, $n$
+- Signal Strength, $\beta_1$
+- Noise Level, $\sigma$
+- Significance Level, $\alpha$
+
+I'll investigate the first three.
+
+To do so I will simulate from the model
+
+\[
+Y_i = \beta_0 + \beta_1 x_i + \epsilon_i
+\]
+
+where $\epsilon_i \sim N(0, \sigma^2)$.
+
+For simplicity, I will let $\beta_0 = 0$, thus $\beta_1$ is essentially controlling the amount of "signal." I will then consider different signals, noises, and sample sizes:
+
+- $\beta_1 \in (-2, -1.9, -1.8, \ldots, -0.1, 0, 0.1, 0.2, 0.3, \ldots 1.9, 2)$
+- $\sigma \in (1, 2, 4)$
+- $n \in (10, 20, 30)$
+
+I will hold the significance level constant at $\alpha = 0.05$.
+
+I will also use the following code to generate the predictor values, `x`: values for different sample sizes.
+
+```{r eval=FALSE}
+x_values = seq(0, 5, length = n)
+```
+
+For each possible $\beta_1$ and $\sigma$ combination, I will simulate from the true model at least $1000$ times. Each time, I will perform the significance of the regression test. To estimate the power with these simulations, and some $\alpha$, I will use
+
+\[
+\hat{\text{Power}} = \hat{P}[\text{Reject } H_0 \mid H_1 \text{ True}] = \frac{\text{ Tests Rejected}}{\text{ Simulations}}
+\]
+
+It is *possible* to derive an expression for power mathematically, but often this is difficult, so instead, we rely on simulation.
+
+## Methods
+
+```{r}
+#setting the seed 
+birthday = 20020527
+set.seed(birthday)
+```
+
+
+Now I will set up the variables that will be used later in this simulation study.
+```{r}
+sigma = c(1, 2, 4)
+sample_size = c(10, 20, 30)
+alpha = 0.05
+
+beta_0 = 0
+beta_1s = seq(from = -2, to = 2, by = .1)
+simulations = 1000
+
+#the number of power iterations should be equal to the num signals * noises * sample sizes
+power_iterations = length(beta_1s) * 3 * 3
+
+#creating empty data frame to store power from simulations for each signal, noise, sample size
+power_simulations_results = data.frame(sigma = rep(0, power_iterations), 
+                                       sample_size = rep(0, power_iterations),
+                                       beta_1 = rep(0, power_iterations),
+                                       power = rep(0, power_iterations))
+```
+
+Here I am creating a function called "sim_slr" that will be used to run the simulations. The function takes the beta and sigma values as inputs and returns the y value.
+```{r}
+# Function to run simulations
+sim_slr = function(beta_0, beta_1, x_values, sigma, size) {
+  epsilon = rnorm(n = size, mean = 0, sd = sigma)
+  y = beta_0 + beta_1*x_values + epsilon
+}
+```
+
+Now I am running the simulations to find power. I loop through each sigma, sample size and then signal and run 1000 simulations for each one as noted above. I store the results in the data frame created previously and use my sim_slr function accordingly. I test the p value using the alpha value of 0.05 and store the power as the count of rejections over the total number of simulations. 
+```{r}
+count = 1
+
+for (s in sigma) {
+  for (n in sample_size) {
+    x_values = seq(0, 5, length = n)
+    for (beta_1 in beta_1s) {
+      power_simulations_results$sigma[count] = s
+      power_simulations_results$sample_size[count] = n
+      power_simulations_results$beta_1[count] = beta_1
+      reject_count = 0
+      for (i in 1:simulations) {
+        y = sim_slr(beta_0, beta_1, x_values, s, n)
+        mod = lm(y ~ x_values)
+        p = summary(mod)$coefficients[2,4]
+        if (p < alpha) {
+          reject_count = reject_count + 1
+        }
+      }
+      power_simulations_results$power[count] = reject_count / simulations
+      count = count + 1
+    }
+  }
+}
+
+```
+
+## Results
+
+### Sigma = 1 graph
+Below I will display a graph for each value of $\sigma$, also showing a power curve for each value of n, to show how power is affected by signal strength or $\beta_1$ values. Since our $\beta_1$ vector contains values in the range from -2 to 2, our power curves will be two-sided.
+```{r}
+# sigma = 1 graph
+sigma1 = power_simulations_results[power_simulations_results$sigma == 1, ]
+n10 = sigma1[sigma1$sample_size == 10, ]
+n20 = sigma1[sigma1$sample_size == 20, ]
+n30 = sigma1[sigma1$sample_size == 30, ]
+plot(sigma1$power ~ sigma1$beta_1, type="n", ylab="Power", xlab="Beta 1", 
+     main="Power vs Beta 1 for sigma = 1")
+lines(n10$power ~ n10$beta_1, col='hotpink', lwd=2)
+lines(n20$power ~ n20$beta_1, col='navy', lwd=2)
+lines(n30$power ~ n30$beta_1, col='forestgreen', lwd=2)
+legend(x = "bottomright", box.lwd = 2, legend=c("n = 10", "n = 20", "n = 30"), 
+       fill = c("hotpink","navy", "forestgreen"))
+```
+
+### Sigma = 2 graph
+
+```{r}
+# sigma = 2 graph
+sigma2 = power_simulations_results[power_simulations_results$sigma == 2, ]
+n10 = sigma2[sigma2$sample_size == 10, ]
+n20 = sigma2[sigma2$sample_size == 20, ]
+n30 = sigma2[sigma2$sample_size == 30, ]
+plot(sigma2$power ~ sigma2$beta_1, type="n", ylab="Power", xlab="Beta 1", 
+     main="Power vs Beta 1 for sigma = 2")
+lines(n10$power ~ n10$beta_1, col='hotpink', lwd=2)
+lines(n20$power ~ n20$beta_1, col='navy', lwd=2)
+lines(n30$power ~ n30$beta_1, col='forestgreen', lwd=2)
+legend(x = "bottomright", box.lwd = 2, legend=c("n = 10", "n = 20", "n = 30"), 
+       fill = c("hotpink","navy", "forestgreen"))
+```
+### Sigma = 4 graph
+```{r}
+# sigma = 4 graph
+sigma4 = power_simulations_results[power_simulations_results$sigma == 4, ]
+n10 = sigma4[sigma4$sample_size == 10, ]
+n20 = sigma4[sigma4$sample_size == 20, ]
+n30 = sigma4[sigma4$sample_size == 30, ]
+plot(sigma4$power ~ sigma4$beta_1, type="n", ylab="Power", xlab="Beta 1", 
+     main="Power vs Beta 1 for sigma = 4")
+lines(n10$power ~ n10$beta_1, col='hotpink', lwd=2)
+lines(n20$power ~ n20$beta_1, col='navy', lwd=2)
+lines(n30$power ~ n30$beta_1, col='forestgreen', lwd=2)
+legend(x = "bottomright", box.lwd = 2, legend=c("n = 10", "n = 20", "n = 30"), 
+       fill = c("hotpink","navy", "forestgreen"))
+```
+
+## Discussion
+
+  In this simulation study, we examined how power refers to probability that a signal of a particular strength will be detected. We know that aspects like sample size, signal strength, noise level, and significance level affect the power of a test. Since our alpha was fixed constant at level 0.05, we will discuss how the other three values affect power. Also we can note that the graphs above level out around a value of power = 1 due to power being a probability value that will range from 0 to 1.
+  
+  Starting with $n$, we can see from all 3 graphs in the result section that as we increase $n$, power also increases. Looking at each graph, as we increase n, the power at a given $\beta_1$ value will be larger for a larger $n$. This means that a increase in sample size will cause a increase in the "probability that a signal of a particular strength will be detected", proving that there is a positive relationship between $n$ and power.
+  Next, looking at $\beta_1$, we can again use the 3 graphs from the result section to see that power seems to increase as $\beta_1$ get farther from zero. At $\beta_1$ = 0, power is nearly 0 but as we move to the right or left towards our range from -2 to 2, power increases. This aligns with our null hypothesis of $\beta_1 = 0$ as power increases when $\beta_1 \neq 0$.
+  Finally, we can see from each separate graph how $\sigma$ affects the power. As $\sigma$ is increased, the power at a given $\beta_1$ value will be lower. For example the power value at -1 or 1 in the above graphs, will be largest in the first graph of $\sigma$ = 1 vs the third graph of $\sigma$ = 4. Furthermore, in the smaller value of sigma, we also see the power curve reach the limit value of 1 whereas in the larger values of sigma, power never reaches this limit in the range -2 to 2. 
+  
+  Overall, we can conclude that larger $n$ values, $\beta_1$ values that are not zero, and smaller $\sigma$ values will cause the power to be larger. We analyzed this with the 1000 simulations done above, but in order to see if this number of simulations is sufficient, we can also run more simulations. When I tested these graphs with 2000 simulations, I noticed that the power curves did not change much besides being smoother. The graphs and curves still showed the same results as we discussed. Even though more simulations would definitely cause the power curves to smoothen out, a larger number of simulations would not be efficient in terms of running time. We can therefore say that 1000 simulations is sufficient as increasing the value to 2000 simulations, did not create a difference in our final conclusions in the relationships.
+  
+

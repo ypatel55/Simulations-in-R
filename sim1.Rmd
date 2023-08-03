@@ -1,0 +1,348 @@
+---
+title: "Week 6 - Midterm Assignment: Simulation Project"
+author: "STAT 420, Summer 2023, Yogi Patel (ypatel55)"
+date: ''
+output:
+  html_document:
+    theme: readable
+    toc: yes
+  pdf_document:
+    toc: yes
+urlcolor: cyan
+---
+
+# Simulation Study 1: Significance of Regression
+
+## Introduction
+In this simulation study, I will investigate the significance of regression test. I will simulate from two different models:
+
+1. The **"significant"** model
+
+\[
+Y_i = \beta_0 + \beta_1 x_{i1} + \beta_2 x_{i2} + \beta_3 x_{i3} + \epsilon_i
+\]
+
+where $\epsilon_i \sim N(0, \sigma^2)$ and
+
+- $\beta_0 = 3$,
+- $\beta_1 = 1$,
+- $\beta_2 = 1$,
+- $\beta_3 = 1$.
+
+
+2. The **"non-significant"** model
+
+\[
+Y_i = \beta_0 + \beta_1 x_{i1} + \beta_2 x_{i2} + \beta_3 x_{i3} + \epsilon_i
+\]
+
+where $\epsilon_i \sim N(0, \sigma^2)$ and
+
+- $\beta_0 = 3$,
+- $\beta_1 = 0$,
+- $\beta_2 = 0$,
+- $\beta_3 = 0$.
+
+For both of these models, I wil consider a sample size of $25$ and three levels of noise, or $\sigma$.
+
+- $n = 25$
+- $\sigma \in (1, 5, 10)$
+
+Then I will use simulation to obtain an empirical distribution for each of the following values, for each of the three values of $\sigma$, for both models.
+
+- The **$F$ statistic** for the significance of regression test.
+- The **p-value** for the significance of regression test
+- **$R^2$**
+
+For each model and $\sigma$ combination, I will do $2000$ simulations. For each simulation, I will also fit a regression model of the same form used to perform the simulation.
+
+I will be using the data found in [`study_1.csv`](study_1.csv) for the values of the predictors. These will be kept constant for the entirety of this study. The `y` values in this data are a blank placeholder.
+
+
+## Methods
+
+First I will read in the data and set the seed.
+```{r,message=FALSE}
+library(readr)
+study1_data = read_csv("study_1.csv")
+birthday = 20020527
+set.seed(birthday)
+```
+
+Now I will set up the variables for both models that will be used later in this simulation study.
+```{r}
+mod1_beta_0 = 3
+mod1_beta_1 = 1
+mod1_beta_2 = 1
+mod1_beta_3 = 1
+  
+mod2_beta_0 = 3
+mod2_beta_1 = 0
+mod2_beta_2 = 0
+mod2_beta_3 = 0
+
+sample_size = 25
+simulations = 2000
+sigma = c(1,5,10)
+
+x0 = rep(1, sample_size)
+x1 = study1_data$x1
+x2 = study1_data$x2
+x3 = study1_data$x3
+
+p = 3 + 1
+
+# creating empty dataframes to store simulation results for each value of sigma, 
+#containing values for the F statistic, P value, and R^2 value for each model
+simulation_1_results = data.frame(mod1_F = rep(0, simulations), 
+                                  mod1_P = rep(0,simulations), 
+                                  mod1_R2 = rep(0,simulations), 
+                                  mod2_F = rep(0, simulations), 
+                                  mod2_P = rep(0,simulations), 
+                                  mod2_R2 = rep(0, simulations))
+
+simulation_2_results = data.frame(mod1_F = rep(0, simulations), 
+                                  mod1_P = rep(0,simulations), 
+                                  mod1_R2 = rep(0,simulations), 
+                                  mod2_F = rep(0, simulations), 
+                                  mod2_P = rep(0,simulations), 
+                                  mod2_R2 = rep(0, simulations))
+
+simulation_3_results = data.frame(mod1_F = rep(0, simulations), 
+                                  mod1_P = rep(0,simulations), 
+                                  mod1_R2 = rep(0,simulations), 
+                                  mod2_F = rep(0, simulations), 
+                                  mod2_P = rep(0,simulations), 
+                                  mod2_R2 = rep(0, simulations))
+
+```
+
+Here I am creating a function called "sim_slr" that will be used to run the simulations. The function takes the beta and sigma values as inputs and returns the y value.
+```{r}
+sim_slr = function(beta_0, beta_1, beta_2, beta_3, sigma) {
+  epsilon = rnorm(n = sample_size, mean = 0, sd = sigma)
+  y = beta_0*x0 + beta_1*x1 + beta_2*x2 + beta_3*x3 + epsilon
+}
+```
+
+Below, I begin by doing simulations for the first sigma value of 1. I use the dataframe called simulation_1_results to store the **$F$ statistic**, the **p-value**, and the **$R^2$** value for the significant model and the insignificant model. Then I call the sim_slr function 2000 times for each model and extract the values needed.
+```{r}
+# simulations for sigma = 1
+
+for (i in 1:simulations) {
+  # For the first significant model
+  study1_data$y = sim_slr(mod1_beta_0, mod1_beta_1, mod1_beta_2, mod1_beta_3, sigma[1])
+  mod1 = lm(y ~ ., data=study1_data)
+  simulation_1_results$mod1_F[i] = summary(mod1)$fstatistic[[1]]
+  simulation_1_results$mod1_P[i] = pf(summary(mod1)$fstatistic[[1]], 
+                                      df1 = p - 1, df2 = sample_size - p, lower.tail = FALSE)
+  simulation_1_results$mod1_R2[i] = summary(mod1)$r.squared
+  
+  # For the second non significant model
+  study1_data$y = sim_slr(mod2_beta_0, mod2_beta_1, mod2_beta_2, mod2_beta_3, sigma[1])
+  mod2 = lm(y ~ ., data=study1_data)
+  simulation_1_results$mod2_F[i] = summary(mod2)$fstatistic[[1]]
+  simulation_1_results$mod2_P[i] = pf(summary(mod2)$fstatistic[[1]], 
+                                      df1 = p - 1, df2 = sample_size - p, lower.tail = FALSE)
+  simulation_1_results$mod2_R2[i] = summary(mod2)$r.squared
+}
+```
+
+Now, I run simulations for the second sigma value of 5. I use the dataframe called simulation_2_results to store the **$F$ statistic**, the **p-value**, and the **$R^2$** value for the significant model and the insignificant model. Then I call the sim_slr function 2000 times for each model and extract the values needed.
+```{r}
+# simulations for sigma = 5
+
+for (i in 1:simulations) {
+  # For the first significant model
+  study1_data$y = sim_slr(mod1_beta_0, mod1_beta_1, mod1_beta_2, mod1_beta_3, sigma[2])
+  mod1 = lm(y ~ ., data=study1_data)
+  simulation_2_results$mod1_F[i] = summary(mod1)$fstatistic[[1]]
+  simulation_2_results$mod1_P[i] = pf(summary(mod1)$fstatistic[[1]], 
+                                      df1 = p - 1, df2 = sample_size - p, lower.tail = FALSE)
+  simulation_2_results$mod1_R2[i] = summary(mod1)$r.squared
+  
+  # For the second non significant model
+  study1_data$y = sim_slr(mod2_beta_0, mod2_beta_1, mod2_beta_2, mod2_beta_3, sigma[2])
+  mod2 = lm(y ~ ., data=study1_data)
+  simulation_2_results$mod2_F[i] = summary(mod2)$fstatistic[[1]]
+  simulation_2_results$mod2_P[i] = pf(summary(mod2)$fstatistic[[1]], 
+                                      df1 = p - 1, df2 = sample_size - p, lower.tail = FALSE)
+  simulation_2_results$mod2_R2[i] = summary(mod2)$r.squared
+}
+```
+
+Finally, I run simulations for the third sigma value of 10. I use the dataframe called simulation_3_results to store the **$F$ statistic**, the **p-value**, and the **$R^2$** value for the significant model and the insignificant model. Then I call the sim_slr function 2000 times for each model and extract the values needed.
+```{r}
+# simulations for sigma = 10
+
+for (i in 1:simulations) {
+  # For the first significant model
+  study1_data$y = sim_slr(mod1_beta_0, mod1_beta_1, mod1_beta_2, mod1_beta_3, sigma[3])
+  mod1 = lm(y ~ ., data=study1_data)
+  simulation_3_results$mod1_F[i] = summary(mod1)$fstatistic[[1]]
+  simulation_3_results$mod1_P[i] = pf(summary(mod1)$fstatistic[[1]], 
+                                      df1 = p - 1, df2 = sample_size - p, lower.tail = FALSE)
+  simulation_3_results$mod1_R2[i] = summary(mod1)$r.squared
+  
+  # For the second non significant model
+  study1_data$y = sim_slr(mod2_beta_0, mod2_beta_1, mod2_beta_2, mod2_beta_3, sigma[3])
+  mod2 = lm(y ~ ., data=study1_data)
+  simulation_3_results$mod2_F[i] = summary(mod2)$fstatistic[[1]]
+  simulation_3_results$mod2_P[i] = pf(summary(mod2)$fstatistic[[1]], 
+                                      df1 = p - 1, df2 = sample_size - p, lower.tail = FALSE)
+  simulation_3_results$mod2_R2[i] = summary(mod2)$r.squared
+}
+```
+
+## Results
+
+### Graphs for significant model
+
+Below I display a 1 x 3 row of $F$ statistic plots as $\sigma$ changes, then a 1 x 3 row of $p$-value plots as $\sigma$ changes, followed by a similar row for the $R^2$ values for the significant model.
+```{r}
+# Significant model graphs
+
+par(mfrow=c(1,3))
+
+# graphs for F statistics for each sigma of significant model
+x = simulation_1_results$mod1_F
+hist(x, prob=TRUE, breaks = 30, main = "F statistics for sigma = 1", 
+     xlab = "F statistic", col='navy', border='white')
+curve(df(x, df1 = p - 1, df2 = sample_size - p), col = "hotpink", add = TRUE, lwd = 3)
+
+x = simulation_2_results$mod1_F
+hist(x, prob=TRUE, breaks = 30, main = "F statistics for sigma = 5", 
+     xlab = "F statistic", col='navy', border='white')
+curve(df(x, df1 = p - 1, df2 = sample_size - p), col = "hotpink", add = TRUE, lwd = 3)
+
+x = simulation_3_results$mod1_F
+hist(x, prob=TRUE, breaks = 30, main = "F statistics for sigma = 10", 
+     xlab = "F statistic", col='navy', border='white')
+curve(df(x, df1 = p - 1, df2 = sample_size - p), col = "hotpink", add = TRUE, lwd = 3)
+
+# graphs for p values for each sigma of significant model
+x = simulation_1_results$mod1_P
+hist(x, prob=TRUE, breaks = 30, main = "P-values for sigma = 1", 
+     xlab = "P-value", col='navy', border='white')
+curve(dunif(x), col='hotpink', add=TRUE, lwd=3)
+
+x = simulation_2_results$mod1_P
+hist(x, prob=TRUE, breaks = 30, main = "P-values for sigma = 5", 
+     xlab = "P-value", col='navy', border='white')
+curve(dunif(x), col='hotpink', add=TRUE, lwd=3)
+
+x = simulation_3_results$mod1_P
+hist(x, prob=TRUE, breaks = 30, main = "P-values for sigma = 10", 
+     xlab = "P-value", col='navy', border='white')
+curve(dunif(x), col='hotpink', add=TRUE, lwd=3)
+
+# graphs for R^2 values for each sigma of significant model
+x = simulation_1_results$mod1_R2
+hist(x, prob=TRUE, breaks = 30, main = "R^2 values for sigma = 1", 
+     xlab = expression(R^2), col='navy', border='white')
+curve(dbeta(x, (p-1)/2,(sample_size-p)/2), col="hotpink", add=TRUE, lwd=3)
+
+x = simulation_2_results$mod1_R2
+hist(x, prob=TRUE, breaks = 30, main = "R^2 values for sigma = 5", 
+     xlab = expression(R^2), col='navy', border='white')
+curve(dbeta(x, (p-1)/2,(sample_size-p)/2), col="hotpink", add=TRUE, lwd=3)
+
+x = simulation_3_results$mod1_R2
+hist(x, prob=TRUE, breaks = 30, main = "R^2 values for sigma = 10", 
+     xlab = expression(R^2), col='navy', border='white')
+curve(dbeta(x, (p-1)/2,(sample_size-p)/2), col="hotpink", add=TRUE, lwd=3)
+
+```
+
+### Graphs for non-significant model
+
+Below I display a 1 x 3 row of $F$ statistic plots as $\sigma$ changes, then a 1 × 3 row of $p$-value plots as $\sigma$ changes, followed by a similar row for the $R^2$ values for the non-significant model.
+
+```{r}
+# Non-significant model graphs
+
+par(mfrow=c(1,3))
+
+# graphs for F statistics for each sigma of non significant model
+x = simulation_1_results$mod2_F
+hist(x, prob=TRUE, breaks = 30, main = "F statistics for sigma = 1", 
+     xlab = "F statistic", col='navy', border='white')
+curve(df(x, df1 = p - 1, df2 = sample_size - p), col = "hotpink", add = TRUE, lwd = 3)
+
+x = simulation_2_results$mod2_F
+hist(x, prob=TRUE, breaks = 30, main = "F statistics for sigma = 5", 
+     xlab = "F statistic", col='navy', border='white')
+curve(df(x, df1 = p - 1, df2 = sample_size - p), col = "hotpink", add = TRUE, lwd = 3)
+
+x = simulation_3_results$mod2_F
+hist(x, prob=TRUE, breaks = 30, main = "F statistics for sigma = 10", 
+     xlab = "F statistic", col='navy', border='white')
+curve(df(x, df1 = p - 1, df2 = sample_size - p), col = "hotpink", add = TRUE, lwd = 3)
+
+# graphs for p values for each sigma of non significant model
+x = simulation_1_results$mod2_P
+hist(x, prob=TRUE, breaks = 30, main = "P-values for sigma = 1", 
+     xlab = "P-value", col='navy', border='white')
+curve(dunif(x), col='hotpink', add=TRUE, lwd=3)
+
+x = simulation_2_results$mod2_P
+hist(x, prob=TRUE, breaks = 30, main = "P-values for sigma = 5", 
+     xlab = "P-value", col='navy', border='white')
+curve(dunif(x), col='hotpink', add=TRUE, lwd=3)
+
+x = simulation_3_results$mod2_P
+hist(x, prob=TRUE, breaks = 30, main = "P-values for sigma = 10", 
+     xlab = "P-value", col='navy', border='white')
+curve(dunif(x), col='hotpink', add=TRUE, lwd=3)
+
+# graphs for R^2 values for each sigma of non significant model
+x = simulation_1_results$mod2_R2
+hist(x, prob=TRUE, breaks = 30, main = "R^2 values for sigma = 1", 
+     xlab = expression(R^2), col='navy', border='white')
+curve(dbeta(x, (p-1)/2,(sample_size-p)/2), col="hotpink", add=TRUE, lwd=3)
+
+x = simulation_2_results$mod2_R2
+hist(x, prob=TRUE, breaks = 30, main = "R^2 values for sigma = 5", 
+     xlab = expression(R^2), col='navy', border='white')
+curve(dbeta(x, (p-1)/2,(sample_size-p)/2), col="hotpink", add=TRUE, lwd=3)
+
+x = simulation_3_results$mod2_R2
+hist(x, prob=TRUE, breaks = 30, main = "R^2 values for sigma = 10", 
+     xlab = expression(R^2), col='navy', border='white')
+curve(dbeta(x, (p-1)/2,(sample_size-p)/2), col="hotpink", add=TRUE, lwd=3)
+
+```
+
+
+## Discussion
+
+  The significance of regression test, tells us whether our linear regression model is a better fit to a dataset than a model with no predictor variables. In this simulation study the model we are testing is the significant model vs the non-significant model.
+
+  For both of these models, we do know the true distribution of the values. 
+  
+  Starting with the **$F$ statistic**, we know that the result should follow a standard F distribution with p-q and n-p degrees of freedom. So we know that p - q = (4 - 1) = 3 and n - p = (2000 - 4 parameters) = 1996. The non-significant model is nested in the significant model. We can refer to the significant model as the full model and the non-significant model as the null model. In the graphs from the results section, I have added curves to show these true distributions. In these graphs, we can see that the F statistic graphs for the models and all three sigma values roughly follow the true distribution except for the significant full model, especially seen at $\sigma$ = 1. This proves that the significant model is actually significant. Because the F values do not follow the F distribution, we can conclude that the F statistic is larger than expected and the model will reject the null hypothesis for the full model. The empirical distribution compared to the true distribution varies for full model as seen, and as $\sigma$ increases, the F statistics seem to follow the true distribution more. This overall means that as $\sigma$ increases, we are more likely to not reject the null hypothesis as the F value gets smaller. 
+  
+  Now, looking at the **p-value**, we see that the non significant model sees larger p values than the significant one, proving again that our significant model is truly significant as smaller p-values will allow us to reject the null hypothesis. We know that when the null hypothesis is true, the p-values follow a uniform distribution. In our null model graphs, we see this uniform distribution clearly, but in our full model graphs, we see that the empirical distribution is no where near uniform. In these significant model p value graphs, we also see that as $\sigma$ increases, the graphs follow the true uniform distribution more. We again can say that as $\sigma$ increases, we are more likely to not reject the null hypothesis as p values get larger.
+  
+  We expect that the true distribution of the **$R^2$** values follow a Beta distribution. The non-significant model is the null model and in its graphs we can see that this model follows this true distribution, with k-1/2 and n-k/2 where k is the number of parameters and n is the number of observations. The significant model does not follow this beta distribution. Also as $\sigma$ increases, the $R^2$ values tend to decrease. This is because increasing $\sigma$ would cause more noise. Again we see that the increase in $\sigma$ also causes the empirical distributions to follow the true distribution more. Proving that our first model is significant and showing that we are more likely to not reject the null hypothesis as $R^2$ values decrease.
+  
+  In all the graphs above, compared to the pink curves of true distributions, we can see that the empirical distributions tend to follow the true ones in the non-significant model but not so much in the significant model. This means our significance of regression test is correct in saying the first model is signficant. As  $\sigma$ increases in the significant model, the F statistic and p-value gets larger, while the $R^2$ gets smaller. In the non-significant model, as  $\sigma$ increases, we tend to not see much change in the empirical distributions for any of the values as the values already follow their true distributions due the model being insignificant. 
+  
+ 
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+

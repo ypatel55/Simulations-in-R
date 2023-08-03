@@ -1,0 +1,416 @@
+---
+title: "Week 6 - Midterm Assignment: Simulation Project"
+author: "STAT 420, Summer 2023, Yogi Patel (ypatel55)"
+date: ''
+output:
+  html_document:
+    theme: readable
+    toc: yes
+  pdf_document:
+    toc: yes
+urlcolor: cyan
+---
+
+# Simulation Study 2: Using RMSE for Selection?
+
+## Introduction
+
+In this simulation study, I will investigate how test RMSE can be used for selection of the "best" model when it is averaged over many attempts.
+
+I will simulate from the model
+
+\[
+Y_i = \beta_0 + \beta_1 x_{i1} + \beta_2 x_{i2} + \beta_3 x_{i3} + \beta_4 x_{i4} + \beta_5 x_{i5} + \beta_6 x_{i6} + \epsilon_i
+\]
+
+where $\epsilon_i \sim N(0, \sigma^2)$ and
+
+- $\beta_0 = 0$,
+- $\beta_1 = 3$,
+- $\beta_2 = -4$,
+- $\beta_3 = 1.6$,
+- $\beta_4 = -1.1$,
+- $\beta_5 = 0.7$,
+- $\beta_6 = 0.5$.
+
+I will consider a sample size of $500$ and three levels of noise. That is, three values of $\sigma$.
+
+- $n = 500$
+- $\sigma \in (1, 2, 4)$
+
+
+I will be using the data found in [`study_2.csv`](study_2.csv) for the values of the predictors. These will be kept constant for the entirety of this study. The `y` values in this data are a blank placeholder.
+
+Each time I simulate the data, I will also randomly split the data into train and test sets of equal sizes (250 observations for training, 250 observations for testing).
+
+For each, I will fit **nine** models, with forms:
+
+- `y ~ x1`
+- `y ~ x1 + x2`
+- `y ~ x1 + x2 + x3`
+- `y ~ x1 + x2 + x3 + x4`
+- `y ~ x1 + x2 + x3 + x4 + x5`
+- `y ~ x1 + x2 + x3 + x4 + x5 + x6`, the correct form of the model as noted above
+- `y ~ x1 + x2 + x3 + x4 + x5 + x6 + x7`
+- `y ~ x1 + x2 + x3 + x4 + x5 + x6 + x7 + x8`
+- `y ~ x1 + x2 + x3 + x4 + x5 + x6 + x7 + x8 + x9`
+
+
+Then for each model, I will calculate Train and Test RMSE.
+
+\[
+\text{RMSE}(\text{model, data}) = \sqrt{\frac{1}{n} \sum_{i = 1}^{n}(y_i - \hat{y}_i)^2}
+\]
+
+This process will be repeated with $1000$ simulations for each of the $3$ values of $\sigma$. 
+
+## Methods
+
+First I will read in the data and set the seed.
+```{r, message=FALSE}
+# reading in data and setting the seed 
+library(readr)
+study2_data = read_csv("study_2.csv")
+birthday = 20020527
+set.seed(birthday)
+```
+Now I will set up the variables that will be used later in this simulation study.
+```{r}
+beta_0 = 0
+beta_1 = 3
+beta_2 = -4
+beta_3 = 1.6
+beta_4 = -1.1
+beta_5 = 0.7
+beta_6 = 0.5
+
+sample_size = 500
+simulations = 1000
+sigma = c(1,2,4)
+
+x0 = rep(1, sample_size)
+x1 = study2_data$x1
+x2 = study2_data$x2
+x3 = study2_data$x3
+x4 = study2_data$x4
+x5 = study2_data$x5
+x6 = study2_data$x6
+
+
+# creating empty data frames to store simulation train and test results for each level of 
+# sigma, containing the rmse for the nine models mentioned above
+simulation1_RMSE_train_data = data.frame(mod1 = rep(0, simulations), 
+                                         mod2 = rep(0, simulations),
+                                         mod3 = rep(0, simulations), 
+                                         mod4 = rep(0, simulations),
+                                         mod5 = rep(0,simulations), 
+                                         mod6 = rep(0, simulations),
+                                         mod7 = rep(0, simulations), 
+                                         mod8 = rep(0, simulations),
+                                         mod9 = rep(0, simulations))
+simulation1_RMSE_test_data = data.frame(mod1 = rep(0, simulations), 
+                                        mod2 = rep(0, simulations),
+                                        mod3 = rep(0, simulations), 
+                                        mod4 = rep(0, simulations),
+                                        mod5 = rep(0, simulations), 
+                                        mod6 = rep(0, simulations),
+                                        mod7 = rep(0, simulations), 
+                                        mod8 = rep(0, simulations),
+                                        mod9 = rep(0, simulations))
+
+simulation2_RMSE_train_data = data.frame(mod1 = rep(0, simulations), 
+                                         mod2 = rep(0, simulations),
+                                         mod3 = rep(0, simulations), 
+                                         mod4 = rep(0, simulations),
+                                         mod5 = rep(0,simulations), 
+                                         mod6 = rep(0, simulations),
+                                         mod7 = rep(0, simulations), 
+                                         mod8 = rep(0, simulations),
+                                         mod9 = rep(0, simulations))
+simulation2_RMSE_test_data = data.frame(mod1 = rep(0, simulations), 
+                                        mod2 = rep(0, simulations),
+                                        mod3 = rep(0, simulations), 
+                                        mod4 = rep(0, simulations),
+                                        mod5 = rep(0, simulations), 
+                                        mod6 = rep(0, simulations),
+                                        mod7 = rep(0, simulations), 
+                                        mod8 = rep(0, simulations),
+                                        mod9 = rep(0, simulations))
+
+simulation3_RMSE_train_data = data.frame(mod1 = rep(0, simulations), 
+                                         mod2 = rep(0, simulations),
+                                         mod3 = rep(0, simulations), 
+                                         mod4 = rep(0, simulations),
+                                         mod5 = rep(0,simulations), 
+                                         mod6 = rep(0, simulations),
+                                         mod7 = rep(0, simulations), 
+                                         mod8 = rep(0, simulations),
+                                         mod9 = rep(0, simulations))
+simulation3_RMSE_test_data = data.frame(mod1 = rep(0, simulations), 
+                                        mod2 = rep(0, simulations),
+                                        mod3 = rep(0, simulations), 
+                                        mod4 = rep(0, simulations),
+                                        mod5 = rep(0, simulations), 
+                                        mod6 = rep(0, simulations),
+                                        mod7 = rep(0, simulations), 
+                                        mod8 = rep(0, simulations), 
+                                        mod9 = rep(0, simulations))
+
+```
+
+Here I am creating a function called "rmse" that will be used to calculate the rmse when it is called. The function takes the actual and prediction as inputs and returns the rmse value which is the average difference between the values predicted by the respective model and the actual value.
+```{r}
+# Function to calculate RMSE
+rmse = function(actual, predicted) {
+  return (sqrt(mean(( actual - predicted )^2 )))
+}
+```
+
+Here I am creating a function called "sim_slr" that will be used to run the simulations. The function takes the beta and sigma values as inputs and returns the y value.
+```{r}
+# Function to run simulations
+sim_slr = function(beta_0, beta_1, beta_2, beta_3, beta_4, beta_5, beta_6, sigma) {
+  epsilon = rnorm(n = sample_size, mean = 0, sd = sigma)
+  y = beta_0*x0 + beta_1*x1 + beta_2*x2 + beta_3*x3 + beta_4*x4 + beta_5*x5 + beta_6*x6 + epsilon
+}
+```
+
+Below, I begin by doing simulations for the first sigma value of 1. I use the dataframes called simulation1_RMSE_train_data and simulation1_RMSE_test_data to store the rmse values for the train and test data for each model. I also assign half of the data to train_data and half of the data to test_data. 
+```{r}
+# simulations for sigma = 1
+
+for (i in 1:simulations) {
+  study2_data$y = sim_slr(beta_0, beta_1, beta_2, beta_3, beta_4, beta_5, beta_6, sigma[1])
+  
+  # creating an index for half of the data, keeping everything up to this index for train data
+  # then removing the train data and keeping the rest for the test data
+  train_idx = sample(sample_size/2) 
+  train_data = study2_data[train_idx,] 
+  test_data = study2_data[-train_idx,] 
+  
+  mod1 = lm(y ~ x1, data = train_data)
+  mod2 = lm(y ~ x1 + x2, data = train_data)
+  mod3 = lm(y ~ x1 + x2 + x3, data = train_data)
+  mod4 = lm(y ~ x1 + x2 + x3 + x4, data = train_data)
+  mod5 = lm(y ~ x1 + x2 + x3 + x4 + x5, data = train_data)
+  mod6 = lm(y ~ x1 + x2 + x3 + x4 + x5 + x6, data = train_data)
+  mod7 = lm(y ~ x1 + x2 + x3 + x4 + x5 + x6 + x7, data = train_data)
+  mod8 = lm(y ~ x1 + x2 + x3 + x4 + x5 + x6 + x7 + x8, data = train_data)
+  mod9 = lm(y ~ x1 + x2 + x3 + x4 + x5 + x6 + x7 + x8 + x9, data = train_data)
+  
+  simulation1_RMSE_train_data$mod1[i] = rmse(train_data$y, predict(mod1, train_data))
+  simulation1_RMSE_train_data$mod2[i] = rmse(train_data$y, predict(mod2, train_data))
+  simulation1_RMSE_train_data$mod3[i] = rmse(train_data$y, predict(mod3, train_data))
+  simulation1_RMSE_train_data$mod4[i] = rmse(train_data$y, predict(mod4, train_data))
+  simulation1_RMSE_train_data$mod5[i] = rmse(train_data$y, predict(mod5, train_data))
+  simulation1_RMSE_train_data$mod6[i] = rmse(train_data$y, predict(mod6, train_data))
+  simulation1_RMSE_train_data$mod7[i] = rmse(train_data$y, predict(mod7, train_data))
+  simulation1_RMSE_train_data$mod8[i] = rmse(train_data$y, predict(mod8, train_data))
+  simulation1_RMSE_train_data$mod9[i] = rmse(train_data$y, predict(mod9, train_data))
+  
+  simulation1_RMSE_test_data$mod1[i] = rmse(test_data$y, predict(mod1, test_data))
+  simulation1_RMSE_test_data$mod2[i] = rmse(test_data$y, predict(mod2, test_data))
+  simulation1_RMSE_test_data$mod3[i] = rmse(test_data$y, predict(mod3, test_data))
+  simulation1_RMSE_test_data$mod4[i] = rmse(test_data$y, predict(mod4, test_data))
+  simulation1_RMSE_test_data$mod5[i] = rmse(test_data$y, predict(mod5, test_data))
+  simulation1_RMSE_test_data$mod6[i] = rmse(test_data$y, predict(mod6, test_data))
+  simulation1_RMSE_test_data$mod7[i] = rmse(test_data$y, predict(mod7, test_data))
+  simulation1_RMSE_test_data$mod8[i] = rmse(test_data$y, predict(mod8, test_data))
+  simulation1_RMSE_test_data$mod9[i] = rmse(test_data$y, predict(mod9, test_data))
+
+}
+```
+
+Now, I run simulations for the second sigma value of 2. I use the dataframes called simulation2_RMSE_train_data and simulation2_RMSE_test_data to store the rmse values for the train and test data for each model. I also assign half of the data to train_data and half of the data to test_data again.
+```{r}
+# simulations for sigma = 2
+
+for (i in 1:simulations) {
+  study2_data$y = sim_slr(beta_0, beta_1, beta_2, beta_3, beta_4, beta_5, beta_6, sigma[2])
+  
+  # creating an index for half of the data, keeping everything up to this index for train data
+  # then removing the train data and keeping the rest for the test data
+  train_idx = sample(sample_size/2) 
+  train_data = study2_data[train_idx,] 
+  test_data = study2_data[-train_idx,] 
+  
+  mod1 = lm(y ~ x1, data = train_data)
+  mod2 = lm(y ~ x1 + x2, data = train_data)
+  mod3 = lm(y ~ x1 + x2 + x3, data = train_data)
+  mod4 = lm(y ~ x1 + x2 + x3 + x4, data = train_data)
+  mod5 = lm(y ~ x1 + x2 + x3 + x4 + x5, data = train_data)
+  mod6 = lm(y ~ x1 + x2 + x3 + x4 + x5 + x6, data = train_data)
+  mod7 = lm(y ~ x1 + x2 + x3 + x4 + x5 + x6 + x7, data = train_data)
+  mod8 = lm(y ~ x1 + x2 + x3 + x4 + x5 + x6 + x7 + x8, data = train_data)
+  mod9 = lm(y ~ x1 + x2 + x3 + x4 + x5 + x6 + x7 + x8 + x9, data = train_data)
+  
+  simulation2_RMSE_train_data$mod1[i] = rmse(train_data$y, predict(mod1, train_data))
+  simulation2_RMSE_train_data$mod2[i] = rmse(train_data$y, predict(mod2, train_data))
+  simulation2_RMSE_train_data$mod3[i] = rmse(train_data$y, predict(mod3, train_data))
+  simulation2_RMSE_train_data$mod4[i] = rmse(train_data$y, predict(mod4, train_data))
+  simulation2_RMSE_train_data$mod5[i] = rmse(train_data$y, predict(mod5, train_data))
+  simulation2_RMSE_train_data$mod6[i] = rmse(train_data$y, predict(mod6, train_data))
+  simulation2_RMSE_train_data$mod7[i] = rmse(train_data$y, predict(mod7, train_data))
+  simulation2_RMSE_train_data$mod8[i] = rmse(train_data$y, predict(mod8, train_data))
+  simulation2_RMSE_train_data$mod9[i] = rmse(train_data$y, predict(mod9, train_data))
+  
+  simulation2_RMSE_test_data$mod1[i] = rmse(test_data$y, predict(mod1, test_data))
+  simulation2_RMSE_test_data$mod2[i] = rmse(test_data$y, predict(mod2, test_data))
+  simulation2_RMSE_test_data$mod3[i] = rmse(test_data$y, predict(mod3, test_data))
+  simulation2_RMSE_test_data$mod4[i] = rmse(test_data$y, predict(mod4, test_data))
+  simulation2_RMSE_test_data$mod5[i] = rmse(test_data$y, predict(mod5, test_data))
+  simulation2_RMSE_test_data$mod6[i] = rmse(test_data$y, predict(mod6, test_data))
+  simulation2_RMSE_test_data$mod7[i] = rmse(test_data$y, predict(mod7, test_data))
+  simulation2_RMSE_test_data$mod8[i] = rmse(test_data$y, predict(mod8, test_data))
+  simulation2_RMSE_test_data$mod9[i] = rmse(test_data$y, predict(mod9, test_data))
+
+}
+```
+
+Finally, I run simulations for the second sigma value of 4. I use the dataframes called simulation3_RMSE_train_data and simulation3_RMSE_test_data to store the rmse values for the train and test data for each model. I also assign half of the data to train_data and half of the data to test_data again.
+```{r}
+# simulations for sigma = 4
+
+for (i in 1:simulations) {
+  study2_data$y = sim_slr(beta_0, beta_1, beta_2, beta_3, beta_4, beta_5, beta_6, sigma[3])
+  
+  # creating an index for half of the data, keeping everything up to this index for train data
+  # then removing the train data and keeping the rest for the test data
+  train_idx = sample(sample_size/2) 
+  train_data = study2_data[train_idx,] 
+  test_data = study2_data[-train_idx,] 
+  
+  mod1 = lm(y ~ x1, data = train_data)
+  mod2 = lm(y ~ x1 + x2, data = train_data)
+  mod3 = lm(y ~ x1 + x2 + x3, data = train_data)
+  mod4 = lm(y ~ x1 + x2 + x3 + x4, data = train_data)
+  mod5 = lm(y ~ x1 + x2 + x3 + x4 + x5, data = train_data)
+  mod6 = lm(y ~ x1 + x2 + x3 + x4 + x5 + x6, data = train_data)
+  mod7 = lm(y ~ x1 + x2 + x3 + x4 + x5 + x6 + x7, data = train_data)
+  mod8 = lm(y ~ x1 + x2 + x3 + x4 + x5 + x6 + x7 + x8, data = train_data)
+  mod9 = lm(y ~ x1 + x2 + x3 + x4 + x5 + x6 + x7 + x8 + x9, data = train_data)
+  
+  simulation3_RMSE_train_data$mod1[i] = rmse(train_data$y, predict(mod1, train_data))
+  simulation3_RMSE_train_data$mod2[i] = rmse(train_data$y, predict(mod2, train_data))
+  simulation3_RMSE_train_data$mod3[i] = rmse(train_data$y, predict(mod3, train_data))
+  simulation3_RMSE_train_data$mod4[i] = rmse(train_data$y, predict(mod4, train_data))
+  simulation3_RMSE_train_data$mod5[i] = rmse(train_data$y, predict(mod5, train_data))
+  simulation3_RMSE_train_data$mod6[i] = rmse(train_data$y, predict(mod6, train_data))
+  simulation3_RMSE_train_data$mod7[i] = rmse(train_data$y, predict(mod7, train_data))
+  simulation3_RMSE_train_data$mod8[i] = rmse(train_data$y, predict(mod8, train_data))
+  simulation3_RMSE_train_data$mod9[i] = rmse(train_data$y, predict(mod9, train_data))
+  
+  simulation3_RMSE_test_data$mod1[i] = rmse(test_data$y, predict(mod1, test_data))
+  simulation3_RMSE_test_data$mod2[i] = rmse(test_data$y, predict(mod2, test_data))
+  simulation3_RMSE_test_data$mod3[i] = rmse(test_data$y, predict(mod3, test_data))
+  simulation3_RMSE_test_data$mod4[i] = rmse(test_data$y, predict(mod4, test_data))
+  simulation3_RMSE_test_data$mod5[i] = rmse(test_data$y, predict(mod5, test_data))
+  simulation3_RMSE_test_data$mod6[i] = rmse(test_data$y, predict(mod6, test_data))
+  simulation3_RMSE_test_data$mod7[i] = rmse(test_data$y, predict(mod7, test_data))
+  simulation3_RMSE_test_data$mod8[i] = rmse(test_data$y, predict(mod8, test_data))
+  simulation3_RMSE_test_data$mod9[i] = rmse(test_data$y, predict(mod9, test_data))
+
+}
+```
+
+## Results
+For each value of $\sigma$, create a plot that shows how average Train RMSE and average Test RMSE changes as a function of model size. Also show the number of times the model of each size was chosen for each value of $\sigma$.
+
+An additional tip:
+
+- To address the second discussion topic, consider making a line graph for the RMSE values at each level of $\sigma$. Within a single plot for a given $\sigma$, one line could correspond to the training data and the other to the test data. 
+
+ 
+### Average Train and Average Test RMSE graphs
+Below I display plots that show how average Train RMSE and average Test RMSE change as a function of model size, for each value of $\sigma$.
+```{r}
+par(mfrow=c(1,2))
+
+# sigma = 1
+means_train1 <- apply(simulation1_RMSE_train_data,2,mean)
+means_test1 <- apply(simulation1_RMSE_test_data,2,mean)
+
+barplot(means_train1, main = "Average train RMSE, sigma = 1", sub = "Models", 
+        ylab = "Frequency",col = c("lightpink", "lightblue","lightgreen",
+        "purple","blue","orange","red","yellow","maroon"),las = 2)
+barplot(means_test1, main = "Average test RMSE, sigma = 1", sub = "Models",
+        ylab = "Frequency",col = c("lightpink","lightblue","lightgreen",
+        "purple","blue","orange","red","yellow","maroon"),las = 2)
+
+#sigma = 2
+means_train2 <- apply(simulation2_RMSE_train_data,2,mean)
+means_test2 <- apply(simulation2_RMSE_test_data,2,mean)
+
+barplot(means_train2, main = "Average train RMSE, sigma = 2", sub = "Models", 
+        ylab = "Frequency",col = c("lightpink", "lightblue","lightgreen",
+        "purple","blue","orange","red","yellow","maroon"),las = 2)
+barplot(means_test2, main = "Average test RMSE, sigma = 2", sub = "Models",
+        ylab = "Frequency",col = c("lightpink","lightblue","lightgreen",
+        "purple","blue","orange","red","yellow","maroon"),las = 2)
+
+#sigma = 4
+means_train3 <- apply(simulation3_RMSE_train_data,2,mean)
+means_test3 <- apply(simulation3_RMSE_test_data,2,mean)
+
+barplot(means_train3, main = "Average train RMSE, sigma = 4", sub = "Models", 
+        ylab = "Frequency",col = c("lightpink", "lightblue","lightgreen",
+        "purple","blue","orange","red","yellow","maroon"),las = 2)
+barplot(means_test3, main = "Average test RMSE, sigma = 4", sub = "Models",
+        ylab = "Frequency",col = c("lightpink","lightblue","lightgreen",
+        "purple","blue","orange","red","yellow","maroon"),las = 2)
+```
+### Table of Model Selection Frequency
+Here I am creating tables that shows the number of times the model of each size was chosen for each value of $\sigma$.
+```{r}
+# Finding the lowest value of RMSE for each row and counting it as the model chosen
+sigma_1 = table(factor(colnames(simulation1_RMSE_test_data)[apply(simulation1_RMSE_test_data,
+          1, FUN = which.min)], levels = colnames(simulation1_RMSE_test_data)))
+sigma_2 = table(factor(colnames(simulation2_RMSE_test_data)[apply(simulation2_RMSE_test_data, 
+          1, FUN = which.min)], levels = colnames(simulation2_RMSE_test_data)))
+sigma_4 = table(factor(colnames(simulation3_RMSE_test_data)[apply(simulation3_RMSE_test_data, 
+          1, FUN = which.min)], levels = colnames(simulation3_RMSE_test_data)))
+mod_names = c('mod1', 'mod2', 'mod3', 'mod4', 'mod5', 'mod6', 'mod7', 'mod8', 'mod9')
+
+knitr::kable(t(cbind(sigma_1,sigma_2,sigma_4)),col.names=mod_names)
+```
+
+### RMSE values at each level of sigma
+Here I am creating a line graph for the average RMSE values at each level of $\sigma$. The graphs display two lines which correspond to the training data and testing data, respectfully.
+```{r}
+#sigma = 1
+plot(means_train1, xlab="Model size", ylab="Average RMSE value", 
+     main="Average RMSE value vs Model size for Sigma = 1", ylim=c(1,3))
+legend(x = "topright", box.lwd = 2, legend=c("Test data", "Train data"), 
+       fill = c("hotpink","navy"))
+lines(means_test1, type ="o", col="hotpink")
+lines(means_train1,type ="o", col="navy")
+
+
+#sigma = 2
+plot(means_train2, xlab="Model size", ylab="Average RMSE value", 
+     main="Average RMSE value vs Model size for Sigma = 2",ylim=c(1.5,3.5))
+legend(x = "topright", box.lwd = 2, legend=c("Test data", "Train data"), 
+       fill = c("hotpink","navy"))
+lines(means_test2, type ="o", col="hotpink")
+lines(means_train2,type ="o", col="navy")
+
+
+#sigma = 4
+plot(means_train3, xlab="Model size", ylab="Average RMSE value", 
+     main="Average RMSE value vs Model size for Sigma = 4", ylim=c(3.5, 5))
+legend(x = "topright", box.lwd = 2, legend=c("Test data", "Train data"), 
+       fill = c("hotpink","navy"))
+lines(means_test3, type ="o", col="hotpink")
+lines(means_train3,type ="o", col="navy")
+
+```
+
+## Discussion
+  RMSE refers to the average difference between values predicted by a model and the actual values. It is a estimation on how accurate the model is. In the above simulation, I displayed how RMSE can be used to select the "best" model when it is averaged over many attempts, however this method doesn't always select the correct model. From the "Table of Model Selection Frequency" above, we can see that the majority of the time, model 6 was chosen for all three values of sigma. Even though it was chosen the most, the other models were also picked often times, proving that this selection method is not always accurate. The table also shows us how for all levels of sigma, model 1 with only one predictor was never chosen, telling us this is the worst model. Averaging the RMSE values for the test and train data, we also saw in the barplot and line graphs above, that the average RMSE was often lowest for a model size of 6, but was sometimes also lower for model sizes above 6.  We can also note that as model size increases, RMSE mostly decreases. Even though the RMSE might often times be lower for other models, on average, the method selects the true model with 6 parameters that we mentioned in the introduction.
+
+  Looking at the level of noise, we see in the graphs above that as we increase $\sigma$, the average RMSE values for both train and test data increases as well. 
+Also, with an increase in $\sigma$, we see in the table that the variation in the model chosen also increases. As $\sigma$ got bigger, more model sizes were chosen than before. For example, when $\sigma$ = 1, models 6,7,8, and 9 were the only ones that were chosen. When we increased $\sigma$ to 2, models 4 and 5 were also chosen a few times and when we increased $\sigma$ to 4, models 2 and 3 were chosen a few times as well. Overall, more noise causes the average RMSE to increase and a higher level of $\sigma$ means that the correct model 6 is chosen less times than before. This increase in the level of noise makes it harder for the model to predict the values correctly, and makes the chosen model vary. 
+
+  From this simulation study, we showed that on average, model 6 has the lowest average RMSE value for each level of $\sigma$ and it is also chosen the most for each level as well. On average, test RMSE is also larger than train RMSE. This difference may be due to the fact that the train data was used to actually build all nine models and the test data is data that the models have not seen before. We can conclude that using RMSE for selection is a valid method, if it is averaged over a large number of simulations. 
+
+
